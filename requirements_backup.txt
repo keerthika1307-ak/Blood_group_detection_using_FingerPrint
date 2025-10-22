@@ -1,7 +1,0 @@
-# Alternative minimal requirements if the main one fails
-streamlit==1.31.0
-tensorflow-cpu==2.15.0
-numpy==1.26.4
-pillow==10.2.0
-plotly==5.18.0
-protobuf==3.20.3
