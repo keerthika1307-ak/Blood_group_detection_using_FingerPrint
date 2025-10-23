@@ -88,7 +88,19 @@ except Exception as e:
     st.stop()
 
 # Class Labels
-class_names = ['A+', 'A-', 'AB+', 'AB-', 'B+', 'B-', 'O+', 'O-']
+# Derive from dataset folder to ensure correct label ordering
+try:
+    if os.path.isdir("dataset"):
+        class_names = sorted([
+            d for d in os.listdir("dataset")
+            if os.path.isdir(os.path.join("dataset", d))
+        ])
+        if len(class_names) == 0:
+            class_names = ['A+', 'A-', 'AB+', 'AB-', 'B+', 'B-', 'O+', 'O-']
+    else:
+        class_names = ['A+', 'A-', 'AB+', 'AB-', 'B+', 'B-', 'O+', 'O-']
+except Exception:
+    class_names = ['A+', 'A-', 'AB+', 'AB-', 'B+', 'B-', 'O+', 'O-']
 
 # Sidebar Information
 with st.sidebar:
@@ -148,8 +160,21 @@ with col_right:
         with st.spinner("🔍 Analyzing fingerprint..."):
             try:
                 # Preprocess and predict
-                img_array = preprocess_image(img)
-                prediction = model.predict(img_array, verbose=0)
+                variants = [
+                    img,
+                    ImageOps.mirror(img),
+                    ImageOps.flip(img),
+                    img.rotate(10, resample=Image.BILINEAR),
+                    img.rotate(-10, resample=Image.BILINEAR),
+                    ImageOps.autocontrast(img, cutoff=2),
+                    ImageOps.autocontrast(ImageOps.mirror(img), cutoff=2)
+                ]
+                preds = []
+                for v in variants:
+                    arr = preprocess_image(v)
+                    p = model.predict(arr, verbose=0)
+                    preds.append(p)
+                prediction = np.mean(preds, axis=0)
                 
                 # Get predictions
                 predicted_idx = np.argmax(prediction[0])
@@ -172,6 +197,12 @@ with col_right:
                     st.warning("⚠️ Moderate Confidence - Results may vary")
                 else:
                     st.error("❌ Low Confidence - Consider using a clearer image")
+
+                # Top-3 predictions
+                top3_idx = np.argsort(prediction[0])[::-1][:3]
+                st.markdown("#### Top-3 Predictions")
+                for rank, idx in enumerate(top3_idx, start=1):
+                    st.write(f"{rank}. {class_names[idx]} — {prediction[0][idx]*100:.1f}%")
                 
             except Exception as e:
                 st.error(f"❌ Error processing the image: {str(e)}")
